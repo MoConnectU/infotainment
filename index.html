@@ -353,6 +353,7 @@ input.txt { max-width: 100%; }
     <div class="card">
       <h2>Gemerkt ★</h2>
       <div id="ytlist"></div>
+      <div style="margin-top:12px"><button class="btn go" onclick="ytPlayList()">▶ Alle als Playlist (Schleife)</button></div>
     </div>
   </div>
 
@@ -501,6 +502,7 @@ input.txt { max-width: 100%; }
   <div id="ytload">Video wird geladen …<br><span style="font-size:15px">Läuft es nicht? Oben auf „↗ YouTube“ tippen.</span></div>
   <div id="ytframe"></div>
   <div id="ytctl">
+    <span class="chip" id="yt_plbadge" style="display:none">🔁 Playlist</span>
     <button class="btn small" id="yt_star" onclick="ytStar()">★ Merken</button>
     <button class="btn small" id="yt_ext" onclick="ytExtern()">↗ YouTube</button>
     <button class="btn small" id="yt_fs" onclick="ytToggleFull()">⤢ Vollbild</button>
@@ -3101,7 +3103,7 @@ function delTvChannel(i) {
 /* ---------- YouTube (alles bleibt im Dashboard) ---------- */
 var ytKey = load('ytkey', '');
 var ytHist = load('ythist', []);
-var ytRes = [], ytTitles = {}, ytCur = null, ytFull = false;
+var ytRes = [], ytTitles = {}, ytCur = null, ytFull = false, ytPlaylist = false;
 function ytId(s) {
   var m = /(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/.exec(s);
   return m ? m[1] : null;
@@ -3128,6 +3130,7 @@ function ytLayout() {
   if (tvFull) { c = (c ? c + ' ' : '') + 'tv-full'; }
   document.body.className = c;
   $('yt_fs').innerHTML = ytFull ? '⤡ Verkleinern' : '⤢ Vollbild';
+  $('yt_plbadge').style.display = ytPlaylist ? 'inline-block' : 'none';
   var tb = $('tv_big'); if (tb) { tb.innerHTML = tvFull ? '⤡ Klein' : '⤢ Groß'; }
 }
 function histAdd(id, t) {
@@ -3163,15 +3166,27 @@ function ytExtern() {
 function ytPlay(id) {
   radioStop();
   tvStop();
-  ytCur = id;
+  ytCur = id; ytPlaylist = false;
   $('ytframe').innerHTML = '<iframe src="https://www.youtube.com/embed/' + id + '?playsinline=1&rel=0' + (oldIOS ? '' : '&autoplay=1') + '" allowfullscreen allow="autoplay; encrypted-media; fullscreen"></iframe>';
   histAdd(id, ytTitles[id]);
   if (!ytHist[0].t) { ytTitle(id); }
   if (curView !== 'yt' && !ytFull) { show('yt'); } else { ytLayout(); $('main').scrollTop = 0; }
   drawYt();
 }
+
+function ytPlayList() {
+  if (!favs.yt.length) { return; }
+  radioStop();
+  tvStop();
+  var ids = favs.yt.map(function (f) { return f.u; });
+  var first = ids[0], rest = ids.slice(1), pl = rest.length ? rest.join(',') : first;
+  ytCur = first; ytPlaylist = true;
+  $('ytframe').innerHTML = '<iframe src="https://www.youtube.com/embed/' + first + '?playsinline=1&rel=0&loop=1&playlist=' + pl + (oldIOS ? '' : '&autoplay=1') + '" allowfullscreen allow="autoplay; encrypted-media; fullscreen"></iframe>';
+  if (curView !== 'yt' && !ytFull) { show('yt'); } else { ytLayout(); $('main').scrollTop = 0; }
+  drawYt();
+}
 function ytClose() {
-  ytCur = null; ytFull = false;
+  ytCur = null; ytFull = false; ytPlaylist = false;
   $('ytframe').innerHTML = '';
   ytLayout();
 }
