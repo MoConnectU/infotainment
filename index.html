@@ -161,10 +161,6 @@ body.tv-full #tvbox video { height: 100vh; max-height: 100vh; -o-object-fit: con
 #qrimg { display: inline-block; background: #fff; padding: 8px; border-radius: 12px; margin: 20px 0; }
 #qrimg img { display: block; }
 
-#toast { position: absolute; left: 50%; bottom: 90px; z-index: 95; background: var(--surface-3, #2d333d); color: var(--text-0, #fff); font-weight: 700; padding: 14px 24px; border-radius: var(--r-pill, 999px); box-shadow: var(--shadow-raised, 0 2px 8px rgba(0,0,0,0.4)); opacity: 0; pointer-events: none; -webkit-transform: translate(-50%, 16px); transform: translate(-50%, 16px); -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; }
-#toast.show { opacity: 1; -webkit-transform: translate(-50%, 0); transform: translate(-50%, 0); }
-@media (max-width: 700px) { #toast { bottom: 76px; } }
-
 
 #alarm { display: none; position: absolute; left: 0; top: 0; right: 0; bottom: 0; z-index: 99; background: #b3261e; text-align: center; padding-top: 180px; }
 #alarm.blink { background: #ffb020; color: #1a1300; }
@@ -357,7 +353,6 @@ input.txt { max-width: 100%; }
     <div class="card">
       <h2>Gemerkt ★</h2>
       <div id="ytlist"></div>
-      <div style="margin-top:12px"><button class="btn go" onclick="ytPlayList()">▶ Alle als Playlist (Schleife)</button></div>
     </div>
   </div>
 
@@ -506,7 +501,6 @@ input.txt { max-width: 100%; }
   <div id="ytload">Video wird geladen …<br><span style="font-size:15px">Läuft es nicht? Oben auf „↗ YouTube“ tippen.</span></div>
   <div id="ytframe"></div>
   <div id="ytctl">
-    <span class="chip" id="yt_plbadge" style="display:none">🔁 Playlist</span>
     <button class="btn small" id="yt_star" onclick="ytStar()">★ Merken</button>
     <button class="btn small" id="yt_ext" onclick="ytExtern()">↗ YouTube</button>
     <button class="btn small" id="yt_fs" onclick="ytToggleFull()">⤢ Vollbild</button>
@@ -520,8 +514,6 @@ input.txt { max-width: 100%; }
   <div id="qrimg"></div>
   <div><button class="btn go" onclick="qrHide()">Fertig</button></div>
 </div>
-
-<div id="toast"></div>
 
 <audio id="au" preload="none"></audio>
 
@@ -3109,7 +3101,7 @@ function delTvChannel(i) {
 /* ---------- YouTube (alles bleibt im Dashboard) ---------- */
 var ytKey = load('ytkey', '');
 var ytHist = load('ythist', []);
-var ytRes = [], ytTitles = {}, ytCur = null, ytFull = false, ytPlaylist = false;
+var ytRes = [], ytTitles = {}, ytCur = null, ytFull = false;
 function ytId(s) {
   var m = /(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/.exec(s);
   return m ? m[1] : null;
@@ -3136,7 +3128,6 @@ function ytLayout() {
   if (tvFull) { c = (c ? c + ' ' : '') + 'tv-full'; }
   document.body.className = c;
   $('yt_fs').innerHTML = ytFull ? '⤡ Verkleinern' : '⤢ Vollbild';
-  $('yt_plbadge').style.display = ytPlaylist ? 'inline-block' : 'none';
   var tb = $('tv_big'); if (tb) { tb.innerHTML = tvFull ? '⤡ Klein' : '⤢ Groß'; }
 }
 function histAdd(id, t) {
@@ -3169,51 +3160,18 @@ function ytExtern() {
   ytClose();
   openUrl('https://m.youtube.com/watch?v=' + id);
 }
-var toastTimer = null;
-function toast(msg) {
-  var t = $('toast');
-  t.textContent = msg;
-  t.className = 'show';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { t.className = ''; }, 2200);
-}
-
-function ytEmbed(id, loopList) {
-  // Bewusst ein ganz einfaches <iframe>, ohne enablejsapi/YT.Player-Objekt:
-  // genau das war die urspruengliche, funktionierende Technik, bei der ein
-  // angetipptes Video auch im Hintergrund/gesperrten Bildschirm weiterlief.
-  // Die zusaetzliche JS-Steuerung (fuer automatisches Entstummen) hat genau
-  // das kaputt gemacht und bringt daher keinen Vorteil mehr, der das wert waere.
-  var src = 'https://www.youtube.com/embed/' + id + '?playsinline=1&rel=0';
-  if (loopList) { src += '&loop=1&playlist=' + loopList; }
-  if (!oldIOS) { src += '&autoplay=1'; }
-  $('ytframe').innerHTML = '<iframe src="' + src + '" allowfullscreen allow="autoplay; encrypted-media; fullscreen"></iframe>';
-}
-
 function ytPlay(id) {
   radioStop();
   tvStop();
-  ytCur = id; ytPlaylist = false;
-  ytEmbed(id);
+  ytCur = id;
+  $('ytframe').innerHTML = '<iframe src="https://www.youtube.com/embed/' + id + '?playsinline=1&rel=0' + (oldIOS ? '' : '&autoplay=1') + '" allowfullscreen allow="autoplay; encrypted-media; fullscreen"></iframe>';
   histAdd(id, ytTitles[id]);
   if (!ytHist[0].t) { ytTitle(id); }
   if (curView !== 'yt' && !ytFull) { show('yt'); } else { ytLayout(); $('main').scrollTop = 0; }
   drawYt();
 }
-
-function ytPlayList() {
-  if (!favs.yt.length) { toast('Noch keine Videos gemerkt'); return; }
-  radioStop();
-  tvStop();
-  var ids = favs.yt.map(function (f) { return f.u; });
-  var first = ids[0], rest = ids.slice(1), pl = rest.length ? rest.join(',') : first;
-  ytCur = first; ytPlaylist = true;
-  ytEmbed(first, pl);
-  if (curView !== 'yt' && !ytFull) { show('yt'); } else { ytLayout(); $('main').scrollTop = 0; }
-  drawYt();
-}
 function ytClose() {
-  ytCur = null; ytFull = false; ytPlaylist = false;
+  ytCur = null; ytFull = false;
   $('ytframe').innerHTML = '';
   ytLayout();
 }
@@ -3221,12 +3179,11 @@ function ytToggleFull() { ytFull = !ytFull; ytLayout(); }
 function ytStar() {
   var i, t = '';
   if (!ytCur) { return; }
-  for (i = 0; i < favs.yt.length; i++) { if (favs.yt[i].u === ytCur) { toast('★ War schon gemerkt'); return; } }
+  for (i = 0; i < favs.yt.length; i++) { if (favs.yt[i].u === ytCur) { return; } }
   for (i = 0; i < ytHist.length; i++) { if (ytHist[i].id === ytCur) { t = ytHist[i].t; } }
   favs.yt.push({ n: t || 'Video', u: ytCur });
   save('fav_yt', favs.yt);
   drawFavs('yt');
-  toast('★ Gemerkt');
 }
 function ytSearch(q) {
   if (!ytKey) {
