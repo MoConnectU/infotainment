@@ -506,6 +506,7 @@ input.txt { max-width: 100%; }
 <div id="ytbox">
   <div id="ytload">Video wird geladen …<br><span style="font-size:15px">Läuft es nicht? Oben auf „↗ YouTube“ tippen.</span></div>
   <div id="ytframe"></div>
+  <button class="btn go" id="yt_unmute" onclick="ytUnmuteNow()" style="display:none; position:absolute; left:50%; top:50%; z-index:6; -webkit-transform:translate(-50%,-50%); transform:translate(-50%,-50%); font-size:22px; padding:22px 30px;">🔊 Ton einschalten</button>
   <div id="ytctl">
     <span class="chip" id="yt_plbadge" style="display:none">🔁 Playlist</span>
     <button class="btn small" id="yt_star" onclick="ytStar()">★ Merken</button>
@@ -3188,14 +3189,20 @@ window.onYouTubeIframeAPIReady = function () {
 function ytDestroyPlayer() {
   if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
 }
+function ytUnmuteNow() {
+  if (ytPlayer) { try { ytPlayer.unMute(); ytPlayer.setVolume(100); } catch (e) {} }
+  $('yt_unmute').style.display = 'none';
+}
 function ytEmbed(id, loopList) {
-  // Die YouTube-API wird bereits im <head> vorab geladen (nicht erst hier),
-  // damit die Erstellung des Players noch im selben, synchronen Klick-Handler
-  // passiert - nur so erkennt Safari den Autoplay-mit-Ton als echten
-  // Nutzer-Tipp und erlaubt ihn. Jeder Zwischenschritt (Nachladen von
-  // Skripten, setTimeout, Stumm/Entstummen-Tricks) kappt diese Verbindung.
+  // iOS Safari entstummt einen eingebetteten YouTube-Player grundsaetzlich
+  // nicht automatisch per Code (feste Plattform-Regel, kein Timing-Problem).
+  // Darum: zuverlaessig stumm autostarten (das erlaubt jeder Browser) und
+  // einen gut sichtbaren "Ton einschalten"-Button zeigen, der echten
+  // Tippkontakt braucht. Danach laeuft die ganze Playlist/Schleife mit Ton,
+  // ohne dass pro Video erneut getippt werden muss.
   ytDestroyPlayer();
   $('ytframe').innerHTML = '<div id="ytph"></div>';
+  $('yt_unmute').style.display = 'none';
   var build = function () {
     if (!$('ytph')) { return; }
     var vars = { playsinline: 1, rel: 0, autoplay: 1 };
@@ -3204,7 +3211,10 @@ function ytEmbed(id, loopList) {
       videoId: id,
       playerVars: vars,
       events: {
-        onReady: function (e) { try { e.target.playVideo(); } catch (er) {} }
+        onReady: function (e) {
+          try { e.target.mute(); e.target.playVideo(); } catch (er) {}
+          $('yt_unmute').style.display = 'block';
+        }
       }
     });
   };
@@ -3235,6 +3245,7 @@ function ytPlayList() {
 }
 function ytClose() {
   ytCur = null; ytFull = false; ytPlaylist = false;
+  $('yt_unmute').style.display = 'none';
   ytDestroyPlayer();
   $('ytframe').innerHTML = '';
   ytLayout();
