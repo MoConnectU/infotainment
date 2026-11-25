@@ -15,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
 <style>
 :root{
   --bg-0:#0d0e11; --bg-1:#14161a; --bg-2:#1c2550;
@@ -3179,16 +3180,6 @@ function toast(msg) {
 }
 
 var ytApiReady = false, ytApiQueue = [], ytPlayer = null;
-function ytLoadApi(cb) {
-  if (ytApiReady && window.YT && window.YT.Player) { cb(); return; }
-  ytApiQueue.push(cb);
-  if (!window._ytApiLoading) {
-    window._ytApiLoading = true;
-    var s = document.createElement('script');
-    s.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(s);
-  }
-}
 window.onYouTubeIframeAPIReady = function () {
   ytApiReady = true;
   var q = ytApiQueue; ytApiQueue = [];
@@ -3198,24 +3189,26 @@ function ytDestroyPlayer() {
   if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
 }
 function ytEmbed(id, loopList) {
+  // Die YouTube-API wird bereits im <head> vorab geladen (nicht erst hier),
+  // damit die Erstellung des Players noch im selben, synchronen Klick-Handler
+  // passiert - nur so erkennt Safari den Autoplay-mit-Ton als echten
+  // Nutzer-Tipp und erlaubt ihn. Jeder Zwischenschritt (Nachladen von
+  // Skripten, setTimeout, Stumm/Entstummen-Tricks) kappt diese Verbindung.
   ytDestroyPlayer();
   $('ytframe').innerHTML = '<div id="ytph"></div>';
-  ytLoadApi(function () {
+  var build = function () {
     if (!$('ytph')) { return; }
-    var vars = { playsinline: 1, rel: 0 };
+    var vars = { playsinline: 1, rel: 0, autoplay: 1 };
     if (loopList) { vars.loop = 1; vars.playlist = loopList; }
     ytPlayer = new YT.Player('ytph', {
       videoId: id,
       playerVars: vars,
       events: {
-        onReady: function (e) {
-          if (oldIOS) { return; }
-          try { e.target.mute(); e.target.playVideo(); } catch (er) {}
-          setTimeout(function () { try { e.target.unMute(); e.target.setVolume(100); } catch (er) {} }, 500);
-        }
+        onReady: function (e) { try { e.target.playVideo(); } catch (er) {} }
       }
     });
-  });
+  };
+  if (ytApiReady && window.YT && window.YT.Player) { build(); } else { ytApiQueue.push(build); }
 }
 
 function ytPlay(id) {
