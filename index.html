@@ -15,7 +15,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
-<script src="https://www.youtube.com/iframe_api"></script>
 <style>
 :root{
   --bg-0:#0d0e11; --bg-1:#14161a; --bg-2:#1c2550;
@@ -3179,34 +3178,16 @@ function toast(msg) {
   toastTimer = setTimeout(function () { t.className = ''; }, 2200);
 }
 
-var ytApiReady = false, ytApiQueue = [], ytPlayer = null;
-window.onYouTubeIframeAPIReady = function () {
-  ytApiReady = true;
-  var q = ytApiQueue; ytApiQueue = [];
-  for (var i = 0; i < q.length; i++) { try { q[i](); } catch (e) {} }
-};
-function ytDestroyPlayer() {
-  if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
-}
 function ytEmbed(id, loopList) {
-  // Ein per JS (playVideo()) gestartetes Video laeuft auf iOS nicht im
-  // Hintergrund weiter, wenn man die App wechselt - nur ein echter,
-  // nativer Tipp auf den YouTube-Play-Button selbst bekommt diesen Status.
-  // Darum hier bewusst KEIN automatisches mute()/playVideo(): der erste
-  // Tipp bleibt der normale YouTube-Play-Button (wie frueher), danach
-  // laeuft die Playlist/Schleife automatisch von Video zu Video weiter.
-  ytDestroyPlayer();
-  $('ytframe').innerHTML = '<div id="ytph"></div>';
-  var build = function () {
-    if (!$('ytph')) { return; }
-    var vars = { playsinline: 1, rel: 0 };
-    if (loopList) { vars.loop = 1; vars.playlist = loopList; }
-    ytPlayer = new YT.Player('ytph', {
-      videoId: id,
-      playerVars: vars
-    });
-  };
-  if (ytApiReady && window.YT && window.YT.Player) { build(); } else { ytApiQueue.push(build); }
+  // Bewusst ein ganz einfaches <iframe>, ohne enablejsapi/YT.Player-Objekt:
+  // genau das war die urspruengliche, funktionierende Technik, bei der ein
+  // angetipptes Video auch im Hintergrund/gesperrten Bildschirm weiterlief.
+  // Die zusaetzliche JS-Steuerung (fuer automatisches Entstummen) hat genau
+  // das kaputt gemacht und bringt daher keinen Vorteil mehr, der das wert waere.
+  var src = 'https://www.youtube.com/embed/' + id + '?playsinline=1&rel=0';
+  if (loopList) { src += '&loop=1&playlist=' + loopList; }
+  if (!oldIOS) { src += '&autoplay=1'; }
+  $('ytframe').innerHTML = '<iframe src="' + src + '" allowfullscreen allow="autoplay; encrypted-media; fullscreen"></iframe>';
 }
 
 function ytPlay(id) {
@@ -3233,7 +3214,6 @@ function ytPlayList() {
 }
 function ytClose() {
   ytCur = null; ytFull = false; ytPlaylist = false;
-  ytDestroyPlayer();
   $('ytframe').innerHTML = '';
   ytLayout();
 }
